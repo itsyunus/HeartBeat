@@ -1,0 +1,228 @@
+name: 💚 Streak Keeper — Ghost Commit
+
+on:
+  schedule:
+    # Runs every day at 6:00 AM UTC (11:30 AM IST)
+    - cron: '0 6 * * *'
+    # Backup run at 6:00 PM UTC (11:30 PM IST) in case the first one misses
+    - cron: '0 18 * * *'
+  workflow_dispatch: # Manual trigger button on GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  ghost-commit:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🕐 Get timestamp
+        id: timestamp
+        run: |
+          echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          echo "time=$(date -u +'%H:%M:%S UTC')" >> $GITHUB_OUTPUT
+          echo "iso=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+          echo "unix=$(date +%s)" >> $GITHUB_OUTPUT
+          echo "human=$(date -u +'%A, %B %d, %Y at %I:%M %p UTC')" >> $GITHUB_OUTPUT
+          echo "day_of_year=$(date -u +'%j')" >> $GITHUB_OUTPUT
+
+      - name: 🎲 Pick random commit message
+        id: message
+        run: |
+          MESSAGES=(
+            "chore: daily heartbeat pulse"
+            "chore: streak maintenance commit"
+            "chore: automated contribution log"
+            "chore: daily activity marker"
+            "chore: ghost commit — keeping the streak alive"
+            "chore: phantom push — day logged"
+            "chore: heartbeat sync"
+            "chore: auto-commit streak pulse"
+            "chore: contribution graph feed"
+            "chore: scheduled streak commit"
+            "chore: still alive, still pushing"
+            "chore: green square secured"
+            "chore: consistency is key"
+            "chore: the grind never stops"
+            "chore: another day, another commit"
+          )
+          RANDOM_INDEX=$((RANDOM % ${#MESSAGES[@]}))
+          echo "msg=${MESSAGES[$RANDOM_INDEX]}" >> $GITHUB_OUTPUT
+
+      - name: 🎲 Pick random quote
+        id: quote
+        run: |
+          QUOTES=(
+            "Still here, still pushing."
+            "Another day, another commit."
+            "The grind never stops."
+            "Consistency is key."
+            "Green squares don't fill themselves."
+            "Streaks are built, not given."
+            "Code is temporary. Streaks are forever."
+            "Ghost in the machine."
+            "Phantom commit deployed."
+            "The streak lives on."
+            "Silence is golden. Commits are greener."
+            "Kept alive by pure discipline."
+            "Day by day, commit by commit."
+            "The machine never sleeps."
+            "Automated excellence."
+          )
+          RANDOM_INDEX=$((RANDOM % ${#QUOTES[@]}))
+          echo "text=${QUOTES[$RANDOM_INDEX]}" >> $GITHUB_OUTPUT
+
+      - name: 📊 Calculate streak day
+        id: streak
+        run: |
+          START_DATE="2026-09-18"
+          START_EPOCH=$(date -d "$START_DATE" +%s 2>/dev/null || date -j -f "%Y-%m-%d" "$START_DATE" +%s 2>/dev/null || echo "1726617600")
+          NOW_EPOCH=$(date +%s)
+          DIFF=$(( (NOW_EPOCH - START_EPOCH) / 86400 ))
+          if [ "$DIFF" -lt 1 ]; then DIFF=1; fi
+          echo "day=$DIFF" >> $GITHUB_OUTPUT
+
+      - name: 👻 Write heartbeat
+        run: |
+          mkdir -p history
+
+          # Main heartbeat file
+          cat > HEARTBEAT.json << 'HEARTBEAT_EOF'
+          {
+            "timestamp": "${{ steps.timestamp.outputs.iso }}",
+            "unix": ${{ steps.timestamp.outputs.unix }},
+            "date": "${{ steps.timestamp.outputs.human }}",
+            "streak_day": ${{ steps.streak.outputs.day }},
+            "quote": "${{ steps.quote.outputs.text }}",
+            "runner": "github-actions",
+            "triggered_by": "${{ github.event_name }}"
+          }
+          HEARTBEAT_EOF
+
+          # Clean up the heredoc indentation
+          python3 -c "
+          import json
+          data = {
+              'timestamp': '${{ steps.timestamp.outputs.iso }}',
+              'unix': ${{ steps.timestamp.outputs.unix }},
+              'date': '${{ steps.timestamp.outputs.human }}',
+              'streak_day': ${{ steps.streak.outputs.day }},
+              'quote': '${{ steps.quote.outputs.text }}',
+              'runner': 'github-actions',
+              'triggered_by': '${{ github.event_name }}'
+          }
+          with open('HEARTBEAT.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
+
+          # Daily history log
+          DATE="${{ steps.timestamp.outputs.date }}"
+          HISTORY_FILE="history/${DATE}.json"
+
+          if [ -f "$HISTORY_FILE" ]; then
+            python3 -c "
+          import json
+          entry = {
+              'timestamp': '${{ steps.timestamp.outputs.iso }}',
+              'unix': ${{ steps.timestamp.outputs.unix }},
+              'quote': '${{ steps.quote.outputs.text }}'
+          }
+          with open('$HISTORY_FILE', 'r') as f:
+              data = json.load(f)
+          if not isinstance(data, list):
+              data = [data]
+          data.append(entry)
+          with open('$HISTORY_FILE', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
+          else
+            python3 -c "
+          import json
+          entry = [{
+              'timestamp': '${{ steps.timestamp.outputs.iso }}',
+              'unix': ${{ steps.timestamp.outputs.unix }},
+              'quote': '${{ steps.quote.outputs.text }}'
+          }]
+          with open('$HISTORY_FILE', 'w') as f:
+              json.dump(entry, f, indent=2)
+          "
+          fi
+
+      - name: 📝 Update README
+        run: |
+          # Count total history files
+          TOTAL_DAYS=$(ls history/*.json 2>/dev/null | wc -l | tr -d ' ')
+
+          cat > README.md << EOF
+          # 🔥 HeartBeat
+
+          > *Automated GitHub contribution tracker — keeping the graph green since Day 1.*
+
+          ---
+
+          ## 💚 Status
+
+          | Field | Value |
+          |-------|-------|
+          | **Last Heartbeat** | ${{ steps.timestamp.outputs.human }} |
+          | **Streak Day** | Day ${{ steps.streak.outputs.day }} |
+          | **Started** | September 18, 2026 |
+          | **Schedule** | Twice daily (6 AM & 6 PM UTC) |
+          | **Total Days Logged** | ${TOTAL_DAYS} |
+          | **Engine** | GitHub Actions |
+
+          ---
+
+          ## 👻 What is this?
+
+          This repo exists solely to maintain my GitHub contribution streak.
+          A GitHub Actions workflow commits a heartbeat file here automatically — no local machine needed,
+          no servers, fully autonomous.
+
+          > *"${{ steps.quote.outputs.text }}"*
+
+          ---
+
+          ## ⚡ How it works
+
+          1. A scheduled GitHub Actions workflow fires twice daily
+          2. It writes a timestamped heartbeat to \`HEARTBEAT.json\`
+          3. Logs each day to \`history/YYYY-MM-DD.json\`
+          4. Commits and pushes with a randomized commit message
+          5. My GitHub contribution graph stays green 🔥
+
+          ---
+
+          ## 🔗 Tech
+
+          - **Zero dependencies** — pure GitHub Actions + bash + python3
+          - **Zero maintenance** — runs on GitHub's infrastructure forever
+          - **Zero cost** — GitHub Actions is free for public repos
+          - **Dual schedule** — backup run ensures no missed days
+          - **Manual trigger** — hit "Run workflow" anytime from the Actions tab
+
+          ---
+
+          *Auto-generated by HeartBeat on ${{ steps.timestamp.outputs.iso }}*
+          EOF
+
+      - name: 🚀 Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add -A
+          
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+            echo "No changes to commit. Streak already logged today."
+          else
+            git commit -m "${{ steps.message.outputs.msg }} [day ${{ steps.streak.outputs.day }}]"
+            git push
+            echo "✅ Ghost commit pushed! Day ${{ steps.streak.outputs.day }} secured."
+          fi
