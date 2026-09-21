@@ -1,13 +1,12 @@
-name: 💚 Streak Keeper — Ghost Commit
+name: Streak Keeper
 
 on:
   schedule:
-    # Four runs spread across the day — redundancy is immortality
-    - cron: '0 3 * * *'   # 3:00 AM UTC  (8:30 AM IST)
-    - cron: '0 9 * * *'   # 9:00 AM UTC  (2:30 PM IST)
-    - cron: '0 15 * * *'  # 3:00 PM UTC  (8:30 PM IST)
-    - cron: '0 21 * * *'  # 9:00 PM UTC  (2:30 AM IST)
-  workflow_dispatch: # Manual trigger button on GitHub UI
+    - cron: '0 3 * * *'
+    - cron: '0 9 * * *'
+    - cron: '0 15 * * *'
+    - cron: '0 21 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,305 +18,150 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: 📥 Checkout repo
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: 🛡️ Keep-Alive — Prevent GitHub from disabling this workflow
-        uses: gautamkrishnar/keepalive-workflow@v2
-        with:
-          time_elapsed: 45
-
-      - name: 🕐 Get timestamp
+      - name: Get timestamp
         id: timestamp
         run: |
           echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-          echo "time=$(date -u +'%H:%M:%S UTC')" >> $GITHUB_OUTPUT
           echo "iso=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
           echo "unix=$(date +%s)" >> $GITHUB_OUTPUT
           echo "human=$(date -u +'%A, %B %d, %Y at %I:%M %p UTC')" >> $GITHUB_OUTPUT
 
-      - name: 📊 Calculate streak day
+      - name: Calculate streak day
         id: streak
         run: |
-          START_DATE="2026-09-18"
-          START_EPOCH=$(date -d "$START_DATE" +%s 2>/dev/null || echo "1789603200")
+          START_EPOCH=$(date -d "2026-09-18" +%s)
           NOW_EPOCH=$(date +%s)
           DIFF=$(( (NOW_EPOCH - START_EPOCH) / 86400 ))
           if [ "$DIFF" -lt 1 ]; then DIFF=1; fi
           echo "day=$DIFF" >> $GITHUB_OUTPUT
 
-          # Milestone detection
-          MILESTONE=""
-          if (( DIFF % 1000 == 0 )); then MILESTONE="🏆 MILLENNIUM";
-          elif (( DIFF % 365 == 0 )); then MILESTONE="🎂 ANNIVERSARY";
-          elif (( DIFF % 100 == 0 )); then MILESTONE="💯 CENTURY";
-          elif (( DIFF == 69 )); then MILESTONE="😏 NICE";
-          elif (( DIFF == 420 )); then MILESTONE="🌿 BLAZE IT";
-          elif (( DIFF == 1337 )); then MILESTONE="💀 LEET";
-          fi
-          echo "milestone=$MILESTONE" >> $GITHUB_OUTPUT
-
-      - name: 🧮 Calculate total commits
+      - name: Get stats
         id: stats
         run: |
-          TOTAL_COMMITS=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+          TOTAL_COMMITS=$(git rev-list --count HEAD)
           echo "total_commits=$TOTAL_COMMITS" >> $GITHUB_OUTPUT
 
-          # Calculate repo age in human readable format
-          FIRST_COMMIT_DATE=$(git log --reverse --format="%ci" | head -1 | cut -d' ' -f1)
-          echo "first_commit=$FIRST_COMMIT_DATE" >> $GITHUB_OUTPUT
-
-      - name: 🎲 Pick random commit message & quote
+      - name: Pick random message
         id: random
         run: |
           MESSAGES=(
             "chore: daily heartbeat pulse"
             "chore: streak maintenance commit"
             "chore: automated contribution log"
-            "chore: ghost commit — keeping the streak alive"
-            "chore: phantom push — day logged"
+            "chore: ghost commit"
+            "chore: phantom push"
             "chore: heartbeat sync"
             "chore: contribution graph feed"
-            "chore: still alive, still pushing"
+            "chore: still alive still pushing"
             "chore: green square secured"
             "chore: the grind never stops"
-            "chore: another day, another commit"
+            "chore: another day another commit"
             "chore: immortal streak pulse"
-            "chore: the machine never sleeps"
             "chore: digital heartbeat"
             "chore: eternity commit"
           )
-
           QUOTES=(
             "Still here, still pushing."
             "Another day, another commit."
             "The grind never stops."
             "Consistency is key."
-            "Green squares don't fill themselves."
             "Streaks are built, not given."
             "Code is temporary. Streaks are forever."
             "Ghost in the machine."
-            "Phantom commit deployed."
             "The streak lives on."
-            "Silence is golden. Commits are greener."
             "Kept alive by pure discipline."
             "The machine never sleeps."
             "Immortal by design."
-            "Running long after the last logout."
-            "A ghost that outlives its creator."
-            "Some things are meant to run forever."
             "Not even death can break this streak."
             "Eternal green. Eternal grind."
-            "The code remembers, even when no one else does."
           )
-
           MSG_IDX=$((RANDOM % ${#MESSAGES[@]}))
           QUOTE_IDX=$((RANDOM % ${#QUOTES[@]}))
-
           echo "msg=${MESSAGES[$MSG_IDX]}" >> $GITHUB_OUTPUT
           echo "quote=${QUOTES[$QUOTE_IDX]}" >> $GITHUB_OUTPUT
 
-      - name: 👻 Write heartbeat
+      - name: Write heartbeat
         run: |
           mkdir -p history
-
-          python3 << 'PYEOF'
-          import json, os
-          from datetime import datetime, timezone
-
-          now = datetime.now(timezone.utc)
-          date_key = now.strftime("%Y-%m-%d")
-
-          heartbeat = {
-              "timestamp": "${{ steps.timestamp.outputs.iso }}",
-              "unix": ${{ steps.timestamp.outputs.unix }},
-              "date": "${{ steps.timestamp.outputs.human }}",
-              "streak_day": ${{ steps.streak.outputs.day }},
-              "quote": "${{ steps.random.outputs.quote }}",
-              "milestone": "${{ steps.streak.outputs.milestone }}" or None,
-              "total_commits": ${{ steps.stats.outputs.total_commits }},
-              "runner": "github-actions",
-              "triggered_by": "${{ github.event_name }}",
-              "workflow_run_id": "${{ github.run_id }}"
+          DATE="${{ steps.timestamp.outputs.date }}"
+          cat > HEARTBEAT.json << EOF
+          {
+            "timestamp": "${{ steps.timestamp.outputs.iso }}",
+            "unix": ${{ steps.timestamp.outputs.unix }},
+            "date": "${{ steps.timestamp.outputs.human }}",
+            "streak_day": ${{ steps.streak.outputs.day }},
+            "quote": "${{ steps.random.outputs.quote }}",
+            "runner": "github-actions",
+            "triggered_by": "${{ github.event_name }}"
           }
+          EOF
+          sed -i 's/^          //' HEARTBEAT.json
 
-          # Remove None milestone
-          if not heartbeat["milestone"]:
-              del heartbeat["milestone"]
-
-          # Write main heartbeat
-          with open("HEARTBEAT.json", "w") as f:
-              json.dump(heartbeat, f, indent=2)
-
-          # Write to daily history
-          history_file = f"history/{date_key}.json"
-          history = []
-          if os.path.exists(history_file):
-              try:
-                  with open(history_file, "r") as f:
-                      history = json.load(f)
-                  if not isinstance(history, list):
-                      history = [history]
-              except:
-                  history = []
-
-          history.append({
-              "timestamp": heartbeat["timestamp"],
-              "unix": heartbeat["unix"],
-              "quote": heartbeat["quote"],
-              "triggered_by": heartbeat["triggered_by"]
-          })
-
-          with open(history_file, "w") as f:
-              json.dump(history, f, indent=2)
-
-          print(f"✅ Heartbeat written — Day {heartbeat['streak_day']}")
-          PYEOF
-
-      - name: 📝 Update README
-        run: |
-          TOTAL_DAYS=$(ls history/*.json 2>/dev/null | wc -l | tr -d ' ')
-          STREAK_DAY=${{ steps.streak.outputs.day }}
-          MILESTONE="${{ steps.streak.outputs.milestone }}"
-          YEARS=$(( STREAK_DAY / 365 ))
-          REMAINING_DAYS=$(( STREAK_DAY % 365 ))
-
-          # Build milestone badge
-          MILESTONE_LINE=""
-          if [ -n "$MILESTONE" ]; then
-            MILESTONE_LINE="| **🏅 Milestone** | $MILESTONE — Day $STREAK_DAY! |"
+          HISTORY_FILE="history/${DATE}.json"
+          if [ -f "$HISTORY_FILE" ]; then
+            TMP=$(cat "$HISTORY_FILE")
+            echo "$TMP" | python3 -c "
+          import json,sys
+          data=json.load(sys.stdin)
+          if not isinstance(data,list): data=[data]
+          data.append({'timestamp':'${{ steps.timestamp.outputs.iso }}','unix':${{ steps.timestamp.outputs.unix }},'quote':'${{ steps.random.outputs.quote }}'})
+          print(json.dumps(data,indent=2))
+          " > "$HISTORY_FILE"
+          else
+            echo '[{"timestamp":"${{ steps.timestamp.outputs.iso }}","unix":${{ steps.timestamp.outputs.unix }},"quote":"${{ steps.random.outputs.quote }}"}]' | python3 -m json.tool > "$HISTORY_FILE"
           fi
 
-          cat > README.md << READMEEOF
-          # 🔥 HeartBeat
+      - name: Update README
+        run: |
+          TOTAL_DAYS=$(ls history/*.json 2>/dev/null | wc -l | tr -d ' ')
+          DAY=${{ steps.streak.outputs.day }}
+          YEARS=$(( DAY / 365 ))
+          REM=$(( DAY % 365 ))
+          cat > README.md << 'READMEEOF'
+          # HeartBeat
 
-          > *An immortal GitHub contribution engine — running forever, no human required.*
+          > An immortal GitHub contribution engine. No human required.
 
-          ---
-
-          ## 💚 Pulse
+          READMEEOF
+          sed -i 's/^          //' README.md
+          cat >> README.md << EOF
 
           | Field | Value |
           |-------|-------|
-          | **Last Heartbeat** | ${{ steps.timestamp.outputs.human }} |
-          | **Streak Day** | Day ${STREAK_DAY} (~${YEARS} years, ${REMAINING_DAYS} days) |
-          | **Total Commits** | ${{ steps.stats.outputs.total_commits }} |
-          | **Total Days Logged** | ${TOTAL_DAYS} |
-          | **Started** | September 18, 2026 |
-          | **Schedule** | 4x daily (3AM, 9AM, 3PM, 9PM UTC) |
-          | **Engine** | GitHub Actions — fully autonomous |
-          ${MILESTONE_LINE}
+          | Last Heartbeat | ${{ steps.timestamp.outputs.human }} |
+          | Streak Day | Day ${DAY} (~${YEARS}y ${REM}d) |
+          | Total Commits | ${{ steps.stats.outputs.total_commits }} |
+          | Days Logged | ${TOTAL_DAYS} |
+          | Started | September 18, 2026 |
+          | Schedule | 4x daily via GitHub Actions |
+
+          > *${{ steps.random.outputs.quote }}*
 
           ---
 
-          ## 👻 What is this?
+          This repo commits to itself automatically via GitHub Actions.
+          Zero servers. Zero maintenance. Zero cost. Runs forever.
+          EOF
 
-          This repository is an autonomous, self-sustaining heartbeat engine.
-          It commits to itself 4 times a day via GitHub Actions — no server,
-          no laptop, no human intervention required. Ever.
-
-          It was designed to run **forever**.
-
-          > *"${{ steps.random.outputs.quote }}"*
-
-          ---
-
-          ## ⚡ Architecture
-
-          \`\`\`
-          ┌─────────────────────────────────────────────┐
-          │           GitHub Actions (Cloud)             │
-          │                                             │
-          │  ┌─────────┐    ┌──────────┐    ┌────────┐  │
-          │  │  Cron    │───▶│ Heartbeat│───▶│  Push  │  │
-          │  │ 4x/day  │    │ Generate │    │ Commit │  │
-          │  └─────────┘    └──────────┘    └────────┘  │
-          │                                             │
-          │  ┌─────────────────────────────────────┐    │
-          │  │  🛡️ Keep-Alive Guardian              │    │
-          │  │  Prevents GitHub from ever disabling │    │
-          │  │  this workflow due to inactivity     │    │
-          │  └─────────────────────────────────────┘    │
-          └─────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌───────────────────┐
-                    │  Contribution     │
-                    │  Graph = GREEN 💚 │
-                    └───────────────────┘
-          \`\`\`
-
-          ---
-
-          ## 🛡️ Immortality Features
-
-          - **Keep-Alive Guardian** — automatically prevents GitHub from disabling scheduled workflows after 60 days of "inactivity"
-          - **4x Daily Redundancy** — even if 3 out of 4 runs fail, one is enough to keep the streak
-          - **Self-healing** — each run is independent; failures don't cascade
-          - **Zero dependencies on any local machine** — runs entirely on GitHub's infrastructure
-          - **Zero cost** — GitHub Actions is free for public repos
-          - **Randomized commit messages** — keeps the log looking organic
-          - **Milestone detection** — celebrates centuries, anniversaries, and special days
-          - **Full history archive** — every heartbeat ever recorded in \`history/\`
-
-          ---
-
-          ## 📜 History
-
-          Every heartbeat is archived in the \`history/\` directory as \`YYYY-MM-DD.json\`.
-          The current heartbeat state is always in \`HEARTBEAT.json\`.
-
-          ---
-
-          *This machine was built to outlive its creator.*
-          *Auto-generated on ${{ steps.timestamp.outputs.iso }}*
-          READMEEOF
-
-      - name: 🚀 Commit and push
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add -A
-
           if git diff --cached --quiet; then
-            echo "No changes to commit. Streak already logged this cycle."
+            echo "No changes to commit."
           else
-            COMMIT_MSG="${{ steps.random.outputs.msg }} [day ${{ steps.streak.outputs.day }}]"
-            MILESTONE="${{ steps.streak.outputs.milestone }}"
-            if [ -n "$MILESTONE" ]; then
-              COMMIT_MSG="🏅 $MILESTONE — $COMMIT_MSG"
-            fi
-
-            git commit -m "$COMMIT_MSG"
-
-            # Retry push up to 3 times (in case of network blip)
-            for i in 1 2 3; do
-              if git push; then
-                echo "✅ Ghost commit pushed! Day ${{ steps.streak.outputs.day }} secured."
-                break
-              else
-                echo "⚠️ Push attempt $i failed. Retrying in 10s..."
-                sleep 10
-                git pull --rebase origin main
-              fi
-            done
+            git commit -m "${{ steps.random.outputs.msg }} [day ${{ steps.streak.outputs.day }}]"
+            git push || (sleep 5 && git pull --rebase origin main && git push) || (sleep 10 && git pull --rebase origin main && git push)
           fi
 
-      - name: 🔔 Log result
-        if: always()
+      - name: Keep-alive ping
         run: |
-          echo "═══════════════════════════════════════"
-          echo "  👻 STREAK KEEPER — RUN COMPLETE"
-          echo "  📅 Day: ${{ steps.streak.outputs.day }}"
-          echo "  🕐 Time: ${{ steps.timestamp.outputs.human }}"
-          echo "  💬 Quote: ${{ steps.random.outputs.quote }}"
-          echo "  📊 Total Commits: ${{ steps.stats.outputs.total_commits }}"
-          MILESTONE="${{ steps.streak.outputs.milestone }}"
-          if [ -n "$MILESTONE" ]; then
-            echo "  🏅 MILESTONE: $MILESTONE"
-          fi
-          echo "═══════════════════════════════════════"
+          echo "Workflow is alive. Last run: ${{ steps.timestamp.outputs.iso }}"
+          echo "This step ensures GitHub does not auto-disable this workflow."
+          echo "Any commit pushed by this workflow counts as repo activity."
