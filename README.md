@@ -1,9 +1,20 @@
-# Automated Telemetry Heartbeat & Contribution Keeper
+# HeartBeat
 
-A lightweight GitHub Actions orchestration service tracking automated system status, repository health signals, and scheduled daily telemetry snapshots.
+> An immortal GitHub contribution engine. No human required.
 
-## System Workflow
 
-- Scheduled Trigger: Runs daily via GitHub Actions cron schedules.
-- Telemetry Persistence: Captures timestamped JSON health signals in `history/` documenting execution integrity and automated pipeline status.
-- State Validation: Verifies that scheduled runner environments maintain active operational status without manual intervention.
+| Field | Value |
+|-------|-------|
+| Last Heartbeat | Thursday, November 19, 2026 at 10:58 AM UTC |
+| Streak Day | Day 62 (~0y 62d) |
+| Total Commits | 244 |
+| Days Logged | 61 |
+| Started | September 18, 2026 |
+| Schedule | 4x daily via GitHub Actions |
+
+> *Ghost in the machine.*
+
+---
+
+This repo commits to itself automatically via GitHub Actions.
+Zero servers. Zero maintenance. Zero cost. Runs forever.
